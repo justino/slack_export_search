@@ -73,6 +73,8 @@ Output will be in IRC style (see `IRC Style Example` below).
 
 This command takes a keyword arg. It will find all conversations that included that keyword.
 
+Right now the grep is dumb, it only finds case-insentive exact matches.
+
 Output will be in IRC style (see `IRC Style Example` below).
 
 # IRC Style Example
