@@ -1,0 +1,574 @@
+#!/usr/bin/env node
+
+var fs = require('fs');
+var util = require('util');
+
+//////////////////////////
+// Import Data
+
+function get_users() {
+    var json = JSON.parse(fs.readFileSync('./users.json', 'utf8'));
+
+    var users = [];
+    for (var user of json) {
+        users.push({
+            id: user.id,
+            name: user.name,
+            real_name: user.profile.real_name,
+            email: user.profile.email
+        })
+    }
+
+    return users;
+}
+
+function get_channels() {
+    var json = JSON.parse(fs.readFileSync('./channels.json', 'utf8'));
+
+    var channels = [];
+    for (var channel of json) {
+        channels.push({
+            id: channel.id,
+            name: channel.name,
+            type: 'Public Channel',
+            members: channel.members
+        });
+    }
+
+    return channels;
+}
+
+function get_dms() {
+    var json = JSON.parse(fs.readFileSync('./dms.json', 'utf8'));
+
+    var dms = [];
+    for (var dm of json) {
+        dms.push({
+            id: dm.id,
+            type: 'Private Direct Message',
+            members: dm.members
+        });
+    }
+
+    return dms;
+}
+
+function get_groups() {
+    var json = JSON.parse(fs.readFileSync('./groups.json', 'utf8'));
+
+    var groups = [];
+    for (var group of json) {
+        groups.push({
+            id: group.id,
+            name: group.name,
+            type: 'Private Channel',
+            members: group.members
+        });
+    }
+
+    return groups;
+}
+
+function get_multi_dms() {
+    json = JSON.parse(fs.readFileSync('./mpims.json', 'utf8'));
+
+    var dms = [];
+    for (var dm of json) {
+        dms.push({
+            id: dm.id,
+            name: dm.name,
+            type: 'Private Group Direct Message',
+            members: dm.members
+        });
+    }
+
+    return dms;
+}
+
+//////////////////////////
+// Functions
+
+function _get_user(type, interested_in) {
+    for (var user of users) {
+        if (user[type] === interested_in) {
+            return user;
+        }
+    }
+
+    return null;
+}
+
+function get_user_by_name(interested_in) {
+    return _get_user('name', interested_in);
+}
+
+function users_to_dict() {
+    var users_dict = {};
+
+    for (var user of users) {
+        users_dict[user.id] = user;
+    }
+
+    return users_dict;
+}
+
+//////////////////////////
+// Links
+
+function link_groups(user, need_user_id) {
+    user.groups = [];
+
+    for (var group of groups) {
+        // If a userid was supplied and we can't find it in the group
+        // skip
+        if (need_user_id && ! group.members.includes(need_user_id)) {
+            continue;
+        }
+
+        var members = [];
+
+        for (var member of group.members) {
+            members.push(users_dict[member]);
+        }
+
+        user.groups.push({
+            id: group.id,
+            name: group.name,
+            type: group.type,
+            members: members
+        });
+    }
+}
+
+function link_channels(user, need_user_id) {
+    user.channels = [];
+
+    for (var channel of channels) {
+        // If a userid was supplied and we can't find it in the group
+        // skip
+        if (need_user_id && ! channel.members.includes(need_user_id)) {
+            continue;
+        }
+
+        var members = [];
+
+        for (var member of channel.members) {
+            members.push(users_dict[member]);
+        }
+
+        user.channels.push({
+            id: channel.id,
+            name: channel.name,
+            type: channel.type,
+            members: members
+        });
+    }
+}
+
+function link_dms(user, need_user_id) {
+    user.dms = _link_dms(dms, user, need_user_id);
+}
+
+function link_multi_dms(user, need_user_id) {
+    user.multi_dms = _link_dms(multi_dms, user, need_user_id);
+}
+
+function _link_dms(dms, user, need_user_id) {
+    var list = [];
+
+    for (var dm of dms) {
+        // If a userid was supplied and we can't find it in the group
+        // skip
+        if (need_user_id && ! dm.members.includes(need_user_id)) {
+            continue;
+        }
+
+        var conversation = {
+            id: dm.id,
+            type: dm.type,
+            members: []
+        };
+        if ('name' in dm) { conversation.name = dm.name; }
+
+        for (var member of dm.members) {
+            conversation.members.push(users_dict[member]);
+        }
+
+        if (conversation.members.length > 0) {
+            list.push(conversation);
+        }
+    }
+
+    return list;
+}
+
+//////////////////////////
+// Fills
+
+function edit_message(messages, edit) {
+    // There as an edit, but didn't touch anything to do with the original text
+    // Usually this is an attachment edit
+    if (! edit['original']) { return ; }
+
+    var message_to_edit;
+    for (var message of messages) {
+        if (message.client_msg_id === edit.original.client_msg_id) { 
+            message_to_edit = message;
+        }
+    }
+
+    // Did we find a message to edit?
+    if (! message_to_edit) {
+        // Nope, this means the message was deleted, we need to insert it back
+        // into the messages list
+        messages.push(edit.original)
+        message_to_edit = edit.original;
+    }
+
+    // Text Edit
+    if (edit['original'] && edit.original['text']) {
+        if (! message_to_edit['edits']) { message_to_edit.edits = []; }
+
+        if (edit.subtype === 'message_changed') {
+            message_to_edit.edits.push({
+                by: edit.message.user,
+                ts: edit.message.ts,
+                text: edit.message.text
+            });
+        }
+        else if (edit.subtype === 'message_deleted') {
+            message_to_edit.deleted = {
+                by: edit.deleted_by
+            }
+        }
+
+        if (message_to_edit.edits.length === 1) {
+            // This was the first edit, we need to modify the original message
+            message_to_edit.text = edit.original.text;
+        }
+    }
+
+    // Attachements are put in as edits, lets strip those
+    delete message_to_edit['attachments'];
+    delete message_to_edit['edited'];
+}
+
+function fill_chats(chats) {
+    for (var chat of chats) {
+        let messages = [];
+
+        // Figure out directory name
+        var dir_name = chat.id;
+        if (chat['name']) { dir_name = chat.name; }
+
+        // Get list of files we need to read
+        var files = fs.readdirSync(`./${dir_name}`);
+        for (var file of files) {
+            if (! file.endsWith(".json")) { continue; }
+
+            // Read in each file
+            var json = JSON.parse(fs.readFileSync(`./${dir_name}/${file}`, 'utf8'));
+            messages = messages.concat(json);
+        }
+
+        // Lets modify the messages so they are a dict of message_ids
+        {
+            let new_messages = [];
+
+            for (var message of messages) {
+                if (message['subtype'] && message['subtype'] === 'message_changed') {
+                    edit_message(new_messages, message);
+                }
+                else if (message['subtype'] && message['subtype'] === 'message_deleted') {
+                    edit_message(new_messages, message);
+                }
+                else if (! message['subtype']) {
+                    // Regular Message
+                    new_messages.push(message);
+                }
+            }
+
+            messages = new_messages;
+        }
+
+        // Ok, lets make this a little more readable by a human
+        {
+            let new_messages = [];
+
+            for (var message of messages) {
+                if (message['files']) {
+                    var urls = [];
+                    for (var file of message['files']) {
+                        urls.push(file.url_private);
+                    }
+                    message.text += " -- ATTACHED FILES: " + urls.join(' | ');
+                }
+
+                if (message['bot_id'] && message.bot_id === 'B69920VJ4' && message['attachments']) {
+                    for (var attachment of message.attachments) {
+                        message.text += ` <${attachment.image_url}>`;
+                    }
+                }
+
+                var new_message = {
+                    ts: ts_to_date(message.ts),
+                    user: '@' + users_dict[message.user].name,
+                    text: replace_tokens(message.text)
+                };
+
+                if (message['deleted']) {
+                    new_message.deleted = message.deleted;
+                    new_message.deleted.by = '@' + users_dict[new_message.deleted.by].name;
+                }
+                if (message['edits']) {
+                    new_message.edits = message.edits;
+
+                    for (var edit of new_message.edits) {
+                        edit.ts = ts_to_date(edit.ts)
+                        edit.by = '@' + users_dict[edit.by].name;
+                        edit.text = replace_tokens(edit.text);
+                    }
+                }
+                
+                new_messages.push(new_message);
+            }
+
+            messages = new_messages;
+        }
+
+        chat.messages = messages;
+    }
+}
+
+//////////////////////////
+// Filters
+
+function keyword_search(chats, keyword) {
+    var found_chats = {};
+
+    for (var type of ['groups', 'channels', 'dms','multi_dms']) {
+        if (! chats[type]) { continue; }
+        found_chats[type] = [];
+
+        for (var convo of chats[type]) {
+            for (var message of convo.messages) {
+                if (message.text.toLowerCase().includes(keyword.toLowerCase())) {
+                    found_chats[type].push(convo);
+                    break; // we have the whole conversation, stop looking
+                }
+
+                if (message['edits'] && message.edits.length > 0) {
+                    for (var edit of message.edits) {
+                        if (edit['text'] && edit.text.toLowerCase().includes(keyword.toLowerCase())) {
+                            found_chats[type].push(convo);
+                            break; // we have the whole conversation, stop looking
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return found_chats;
+}
+
+//////////////////////////
+// Outputs
+
+function chats_to_irc(chats) {
+    for (var type of ['groups', 'channels', 'dms','multi_dms']) {
+        if (! chats[type]) { continue; }
+
+        for (var convo of chats[type]) {
+            var type = convo.type;
+            if (convo.name) { type += `: ${convo.name}`};
+            var member_list = convo.members.map(m => m.name).join(", ");
+            var name_len = convo.members.map(m => m.name.length).sort((a, b) => { return a - b }).reverse().shift();
+            var name_padding = Array(name_len + 2).join(' ');
+
+            console.log('****************************************************');
+            console.log(`***** ${type}`)
+            console.log(`***** Between: ${member_list}`);
+            console.log('****************************************************');
+
+            for (var message of convo.messages) {
+                var name = String(name_padding + message.user).slice(-name_padding.length);
+                console.log(`${message.ts}: ${name}: ${message.text}`);
+
+                // Show edits
+                if (message['edits'] && message.edits.length > 0) {
+                    for (var edit of message['edits']) {
+                        console.log(`\t(edited by ${edit.by}): ${edit.text}`);
+                    }
+                }
+                // Show deletes
+                if (message['deleted']) {
+                    console.log(`\t(deleted by ${message.deleted.by})`);
+                }
+            }
+        }
+    }
+}
+
+//////////////////////////
+// Utils
+
+function ts_to_date(ts) {
+    var date = new Date(ts * 1000);
+
+    var d = date.toLocaleDateString('en-US', {
+        timeZone: 'America/New_York',
+        month: '2-digit',
+        day: '2-digit',
+        year: 'numeric'
+    });
+
+    var t = date.toLocaleTimeString('en-US', {
+        timeZone: 'America/New_York',
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+
+    return `${d} ${t}`;
+}
+
+function replace_tokens(text) {
+    // User tokens
+    var user_r = /\<\@(U.+?)\>/;
+    while (user_r.test(text)) {
+        var matches = text.match(user_r);
+        var link = matches[0];
+        var link_user = users_dict[matches[1]];
+
+        text = text.replace(link, '@' + link_user.name)
+    }
+
+    // Channel tokens
+    var channel_r = /\<\!(.+?)\>/;
+    while (channel_r.test(text)) {
+        var matches = text.match(channel_r);
+        var link = matches[0];
+        var link_channel = matches[1];
+
+        text = text.replace(link, '@' + link_channel);
+    }
+
+    return text;
+}
+
+function clean_up(chats) {
+    for (var type of ['groups', 'channels', 'dms', 'multi_dms']) {
+        var len = chats[type].length;
+        while (len--) {
+            if (chats[type][len].messages.length === 0) {
+                chats[type].splice(len, 1);
+            }
+        }
+
+        if (chats[type].length === 0) {
+            delete chats[type];
+        }
+    }
+}
+
+//////////////////////////
+// Commands
+
+function list_users() {
+    var users = get_users();
+    for (var user of users) {
+        console.log(
+            [user.id, user.name, user.real_name, user.email].join("\t")
+        )
+    }
+}
+
+function user_conversation() {
+    var username = process.argv[3];
+
+    if (! username) {
+        console.log('username must be supplied');
+        process.exit(1);
+    }
+
+    var user = get_user_by_name(username);
+
+    if (! user) {
+        console.log(`User '${username}' doesn't exist`);
+        process.exit(1);
+    }
+
+    link_groups(user, user.id);
+    link_channels(user, user.id);
+    link_dms(user, user.id);
+    link_multi_dms(user, user.id);
+
+    fill_chats(user.groups);
+    fill_chats(user.channels);
+    fill_chats(user.dms);
+    fill_chats(user.multi_dms);
+
+    clean_up(user);
+
+    chats_to_irc(user);
+    //console.log(user);
+}
+
+function conversation_grep() {
+    var keyword = process.argv[3];
+
+    if (! keyword) {
+        console.log('keyword must be supplied');
+        process.exit(1);
+    }
+
+    var world = {
+        groups: [],
+        channels: [],
+        dms: [],
+        multi_dms: []
+    }
+
+    link_groups(world);
+    link_channels(world);
+    link_dms(world);
+    link_multi_dms(world);
+
+    fill_chats(world.groups);
+    fill_chats(world.channels);
+    fill_chats(world.dms);
+    fill_chats(world.multi_dms);
+
+    var new_world = keyword_search(world, keyword);
+
+    clean_up(new_world);
+
+    chats_to_irc(new_world);
+}
+
+//////////////////////////
+
+var command = process.argv[2];
+
+var users = get_users();
+var users_dict = users_to_dict();
+var groups = get_groups();
+var channels = get_channels();
+var dms = get_dms();
+var multi_dms = get_multi_dms();
+
+switch(command) {
+    case 'list_users':
+        list_users();
+        break;
+    case 'user_conversation':
+        user_conversation();
+        break;
+    case 'conversation_grep':
+        conversation_grep();
+        break;
+    default:
+        console.log('Missing command');
+}
