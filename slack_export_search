@@ -410,6 +410,18 @@ function chats_to_irc(chats) {
     }
 }
 
+function channels_list(world) {
+    for (const type of ['groups', 'channels']) {
+        if (! world[type]) { continue; }
+
+        // TSV format
+        for (const channel of world[type]) {
+            const members = channel.members.map(member => member.real_name)
+            console.log(`${channel.name}\t${channel.type}\t${members.join("\t")}`)
+        }
+    }
+}
+
 //////////////////////////
 // Utils
 
@@ -483,6 +495,18 @@ function list_users() {
             [user.id, user.name, user.real_name, user.email].join("\t")
         )
     }
+}
+
+function list_channels() {
+    const world = {
+        groups: [],
+        channels: [],
+    };
+
+    link_groups(world);
+    link_channels(world);
+
+    channels_list(world);
 }
 
 function user_conversation() {
@@ -562,6 +586,9 @@ var multi_dms = get_multi_dms();
 switch(command) {
     case 'list_users':
         list_users();
+        break;
+    case 'list_channels':
+        list_channels();
         break;
     case 'user_conversation':
         user_conversation();

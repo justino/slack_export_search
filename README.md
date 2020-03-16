@@ -10,7 +10,7 @@ I had a need to look through an export for legal discovery and couldn't find a t
 
 I'll probably add features to this as the need arrises. If you find it useful and want to add more features, by all means, fork and send a pull request.
 
-## Warranty 
+## Warranty
 
 Provided as is.
 
@@ -55,10 +55,23 @@ slack_export_tool <command> [args]
 Takes no arguments. Outputs a TSV of id, user, name, email
 
 Example
+
 ```
 U123456AB        user1        Cool Person        coolperson@example.com
 U234567CD        user2        New Person         newperson@example.com
 U345678EF        dumbo        Dumb Person        dumbperson@example.com
+```
+
+#### `list_channels`
+
+Takes no arguments. Outputs a TSV of channel name, channel type, a column for each user
+
+Example
+
+```
+awesome-people        Private Channel        Awesome Adam        Amazing Amy        Astonishing Alby
+terrible-people       Private Channel        Awful Amelia        Alarming Aiden     Appalling Arthur         Abhorrent Ashton
+general               Public Channel         Boring Boris        Bad Blake          Boss Bethany
 ```
 
 #### `user_conversation`
