@@ -19,6 +19,14 @@ function get_users() {
         })
     }
 
+    // Add slackbot
+    users.push({
+        id: 'USLACKBOT',
+        name: 'slackbot',
+        real_name: 'Slack Bot',
+        email: ''
+    });
+
     return users;
 }
 
@@ -304,9 +312,21 @@ function fill_chats(chats) {
                     message.text += " -- ATTACHED FILES: " + urls.join(' | ');
                 }
 
-                if (message['bot_id'] && message.bot_id === 'B69920VJ4' && message['attachments']) {
-                    for (var attachment of message.attachments) {
-                        message.text += ` <${attachment.image_url}>`;
+                // Attempt to handle bots and integrations
+                if ('bot_id' in message) {
+                    // Giphy
+                    if (message.bot_id === 'B69920VJ4' && message['attachments']) {
+                        for (var attachment of message.attachments) {
+                            message.text += ` <${attachment.image_url}>`;
+                        }
+                    }
+                    // If a bot is in the user list already, it's A OK
+                    else if (message['user'] && users_dict[message['user']]) {
+                        // noop
+                    }
+                    // Unhandled Bot, lets skip the message entirely
+                    else {
+                        continue;
                     }
                 }
 
