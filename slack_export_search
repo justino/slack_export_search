@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
-var fs = require('fs');
+const fs = require('fs');
 
 //////////////////////////
 // Import Data
 
 function get_users() {
-    var json = JSON.parse(fs.readFileSync('./users.json', 'utf8'));
+    const json = JSON.parse(fs.readFileSync('./users.json', 'utf8'));
 
-    var users = [];
-    for (var user of json) {
+    const users = [];
+    for (const user of json) {
         users.push({
             id: user.id,
             name: user.name,
@@ -30,10 +30,10 @@ function get_users() {
 }
 
 function get_channels() {
-    var json = JSON.parse(fs.readFileSync('./channels.json', 'utf8'));
+    const json = JSON.parse(fs.readFileSync('./channels.json', 'utf8'));
 
-    var channels = [];
-    for (var channel of json) {
+    const channels = [];
+    for (const channel of json) {
         channels.push({
             id: channel.id,
             name: channel.name,
@@ -46,10 +46,10 @@ function get_channels() {
 }
 
 function get_dms() {
-    var json = JSON.parse(fs.readFileSync('./dms.json', 'utf8'));
+    const json = JSON.parse(fs.readFileSync('./dms.json', 'utf8'));
 
-    var dms = [];
-    for (var dm of json) {
+    const dms = [];
+    for (const dm of json) {
         dms.push({
             id: dm.id,
             type: 'Private Direct Message',
@@ -61,10 +61,10 @@ function get_dms() {
 }
 
 function get_groups() {
-    var json = JSON.parse(fs.readFileSync('./groups.json', 'utf8'));
+    const json = JSON.parse(fs.readFileSync('./groups.json', 'utf8'));
 
-    var groups = [];
-    for (var group of json) {
+    const groups = [];
+    for (const group of json) {
         groups.push({
             id: group.id,
             name: group.name,
@@ -77,10 +77,10 @@ function get_groups() {
 }
 
 function get_multi_dms() {
-    json = JSON.parse(fs.readFileSync('./mpims.json', 'utf8'));
+    const json = JSON.parse(fs.readFileSync('./mpims.json', 'utf8'));
 
-    var dms = [];
-    for (var dm of json) {
+    const dms = [];
+    for (const dm of json) {
         dms.push({
             id: dm.id,
             name: dm.name,
@@ -96,7 +96,7 @@ function get_multi_dms() {
 // Functions
 
 function _get_user(type, interested_in) {
-    for (var user of users) {
+    for (const user of users) {
         if (user[type] === interested_in) {
             return user;
         }
@@ -110,9 +110,9 @@ function get_user_by_name(interested_in) {
 }
 
 function users_to_dict() {
-    var users_dict = {};
+    const users_dict = {};
 
-    for (var user of users) {
+    for (const user of users) {
         users_dict[user.id] = user;
     }
 
@@ -125,16 +125,16 @@ function users_to_dict() {
 function link_groups(user, need_user_id) {
     user.groups = [];
 
-    for (var group of groups) {
+    for (const group of groups) {
         // If a userid was supplied and we can't find it in the group
         // skip
         if (need_user_id && ! group.members.includes(need_user_id)) {
             continue;
         }
 
-        var members = [];
+        const members = [];
 
-        for (var member of group.members) {
+        for (const member of group.members) {
             members.push(users_dict[member]);
         }
 
@@ -150,16 +150,16 @@ function link_groups(user, need_user_id) {
 function link_channels(user, need_user_id) {
     user.channels = [];
 
-    for (var channel of channels) {
+    for (const channel of channels) {
         // If a userid was supplied and we can't find it in the group
         // skip
         if (need_user_id && ! channel.members.includes(need_user_id)) {
             continue;
         }
 
-        var members = [];
+        const members = [];
 
-        for (var member of channel.members) {
+        for (const member of channel.members) {
             members.push(users_dict[member]);
         }
 
@@ -181,23 +181,23 @@ function link_multi_dms(user, need_user_id) {
 }
 
 function _link_dms(dms, user, need_user_id) {
-    var list = [];
+    const list = [];
 
-    for (var dm of dms) {
+    for (const dm of dms) {
         // If a userid was supplied and we can't find it in the group
         // skip
         if (need_user_id && ! dm.members.includes(need_user_id)) {
             continue;
         }
 
-        var conversation = {
+        const conversation = {
             id: dm.id,
             type: dm.type,
             members: []
         };
         if ('name' in dm) { conversation.name = dm.name; }
 
-        for (var member of dm.members) {
+        for (const member of dm.members) {
             conversation.members.push(users_dict[member]);
         }
 
@@ -217,8 +217,8 @@ function edit_message(messages, edit) {
     // Usually this is an attachment edit
     if (! edit['original']) { return ; }
 
-    var message_to_edit;
-    for (var message of messages) {
+    let message_to_edit;
+    for (const message of messages) {
         if (message.client_msg_id === edit.original.client_msg_id) { 
             message_to_edit = message;
         }
@@ -261,28 +261,28 @@ function edit_message(messages, edit) {
 }
 
 function fill_chats(chats) {
-    for (var chat of chats) {
+    for (const chat of chats) {
         let messages = [];
 
         // Figure out directory name
-        var dir_name = chat.id;
+        let dir_name = chat.id;
         if (chat['name']) { dir_name = chat.name; }
 
         // Get list of files we need to read
-        var files = fs.readdirSync(`./${dir_name}`);
-        for (var file of files) {
+        const files = fs.readdirSync(`./${dir_name}`);
+        for (const file of files) {
             if (! file.endsWith(".json")) { continue; }
 
             // Read in each file
-            var json = JSON.parse(fs.readFileSync(`./${dir_name}/${file}`, 'utf8'));
+            const json = JSON.parse(fs.readFileSync(`./${dir_name}/${file}`, 'utf8'));
             messages = messages.concat(json);
         }
 
         // Lets modify the messages so they are a dict of message_ids
         {
-            let new_messages = [];
+            const new_messages = [];
 
-            for (var message of messages) {
+            for (const message of messages) {
                 if (message['subtype'] && message['subtype'] === 'message_changed') {
                     edit_message(new_messages, message);
                 }
@@ -300,12 +300,12 @@ function fill_chats(chats) {
 
         // Ok, lets make this a little more readable by a human
         {
-            let new_messages = [];
+            const new_messages = [];
 
-            for (var message of messages) {
+            for (const message of messages) {
                 if (message['files']) {
-                    var urls = [];
-                    for (var file of message['files']) {
+                    const urls = [];
+                    for (const file of message['files']) {
                         urls.push(file.url_private);
                     }
                     message.text += " -- ATTACHED FILES: " + urls.join(' | ');
@@ -315,7 +315,7 @@ function fill_chats(chats) {
                 if ('bot_id' in message) {
                     // Giphy
                     if (message.bot_id === 'B69920VJ4' && message['attachments']) {
-                        for (var attachment of message.attachments) {
+                        for (const attachment of message.attachments) {
                             message.text += ` <${attachment.image_url}>`;
                         }
                     }
@@ -329,7 +329,7 @@ function fill_chats(chats) {
                     }
                 }
 
-                var new_message = {
+                const new_message = {
                     ts: ts_to_date(message.ts),
                     user: '@' + users_dict[message.user].name,
                     text: replace_tokens(message.text)
@@ -342,7 +342,7 @@ function fill_chats(chats) {
                 if (message['edits']) {
                     new_message.edits = message.edits;
 
-                    for (var edit of new_message.edits) {
+                    for (const edit of new_message.edits) {
                         edit.ts = ts_to_date(edit.ts)
                         edit.by = '@' + users_dict[edit.by].name;
                         edit.text = replace_tokens(edit.text);
@@ -363,21 +363,21 @@ function fill_chats(chats) {
 // Filters
 
 function keyword_search(chats, keyword) {
-    var found_chats = {};
+    const found_chats = {};
 
-    for (var type of ['groups', 'channels', 'dms','multi_dms']) {
+    for (const type of ['groups', 'channels', 'dms','multi_dms']) {
         if (! chats[type]) { continue; }
         found_chats[type] = [];
 
-        for (var convo of chats[type]) {
-            for (var message of convo.messages) {
+        for (const convo of chats[type]) {
+            for (const message of convo.messages) {
                 if (message.text.toLowerCase().includes(keyword.toLowerCase())) {
                     found_chats[type].push(convo);
                     break; // we have the whole conversation, stop looking
                 }
 
                 if (message['edits'] && message.edits.length > 0) {
-                    for (var edit of message.edits) {
+                    for (const edit of message.edits) {
                         if (edit['text'] && edit.text.toLowerCase().includes(keyword.toLowerCase())) {
                             found_chats[type].push(convo);
                             break; // we have the whole conversation, stop looking
@@ -395,28 +395,29 @@ function keyword_search(chats, keyword) {
 // Outputs
 
 function chats_to_irc(chats) {
-    for (var type of ['groups', 'channels', 'dms','multi_dms']) {
+    for (const type of ['groups', 'channels', 'dms','multi_dms']) {
         if (! chats[type]) { continue; }
 
-        for (var convo of chats[type]) {
-            var type = convo.type;
-            if (convo.name) { type += `: ${convo.name}`};
-            var member_list = convo.members.map(m => m.name).join(", ");
-            var name_len = convo.members.map(m => m.name.length).sort((a, b) => { return a - b }).reverse().shift();
-            var name_padding = Array(name_len + 2).join(' ');
+        for (const convo of chats[type]) {
+            let convo_type = convo.type;
+            if (convo.name) { convo_type += `: ${convo.name}`};
+
+            const member_list = convo.members.map(m => m.name).join(", ");
+            const name_len = convo.members.map(m => m.name.length).sort((a, b) => { return a - b }).reverse().shift();
+            const name_padding = Array(name_len + 2).join(' ');
 
             console.log('****************************************************');
-            console.log(`***** ${type}`)
+            console.log(`***** ${convo_type}`)
             console.log(`***** Between: ${member_list}`);
             console.log('****************************************************');
 
-            for (var message of convo.messages) {
-                var name = String(name_padding + message.user).slice(-name_padding.length);
+            for (const message of convo.messages) {
+                const name = String(name_padding + message.user).slice(-name_padding.length);
                 console.log(`${message.ts}: ${name}: ${message.text}`);
 
                 // Show edits
                 if (message['edits'] && message.edits.length > 0) {
-                    for (var edit of message['edits']) {
+                    for (const edit of message['edits']) {
                         console.log(`\t(edited by ${edit.by}): ${edit.text}`);
                     }
                 }
@@ -445,16 +446,16 @@ function channels_list(world) {
 // Utils
 
 function ts_to_date(ts) {
-    var date = new Date(ts * 1000);
+    const date = new Date(ts * 1000);
 
-    var d = date.toLocaleDateString('en-US', {
+    const d = date.toLocaleDateString('en-US', {
         timeZone: 'America/New_York',
         month: '2-digit',
         day: '2-digit',
         year: 'numeric'
     });
 
-    var t = date.toLocaleTimeString('en-US', {
+    const t = date.toLocaleTimeString('en-US', {
         timeZone: 'America/New_York',
         hour12: false,
         hour: '2-digit',
@@ -467,21 +468,21 @@ function ts_to_date(ts) {
 
 function replace_tokens(text) {
     // User tokens
-    var user_r = /\<\@(U.+?)\>/;
+    const user_r = /\<\@(U.+?)\>/;
     while (user_r.test(text)) {
-        var matches = text.match(user_r);
-        var link = matches[0];
-        var link_user = users_dict[matches[1]];
+        const matches = text.match(user_r);
+        const link = matches[0];
+        const link_user = users_dict[matches[1]];
 
         text = text.replace(link, '@' + link_user.name)
     }
 
     // Channel tokens
-    var channel_r = /\<\!(.+?)\>/;
+    const channel_r = /\<\!(.+?)\>/;
     while (channel_r.test(text)) {
-        var matches = text.match(channel_r);
-        var link = matches[0];
-        var link_channel = matches[1];
+        const matches = text.match(channel_r);
+        const link = matches[0];
+        const link_channel = matches[1];
 
         text = text.replace(link, '@' + link_channel);
     }
@@ -490,8 +491,9 @@ function replace_tokens(text) {
 }
 
 function clean_up(chats) {
-    for (var type of ['groups', 'channels', 'dms', 'multi_dms']) {
-        var len = chats[type].length;
+    for (const type of ['groups', 'channels', 'dms', 'multi_dms']) {
+        let len = chats[type].length;
+
         while (len--) {
             if (chats[type][len].messages.length === 0) {
                 chats[type].splice(len, 1);
@@ -508,8 +510,9 @@ function clean_up(chats) {
 // Commands
 
 function list_users() {
-    var users = get_users();
-    for (var user of users) {
+    const users = get_users();
+
+    for (const user of users) {
         console.log(
             [user.id, user.name, user.real_name, user.email].join("\t")
         )
@@ -529,14 +532,14 @@ function list_channels() {
 }
 
 function user_conversation() {
-    var username = process.argv[3];
+    const username = process.argv[3];
 
     if (! username) {
         console.log('username must be supplied');
         process.exit(1);
     }
 
-    var user = get_user_by_name(username);
+    const user = get_user_by_name(username);
 
     if (! user) {
         console.log(`User '${username}' doesn't exist`);
@@ -560,14 +563,14 @@ function user_conversation() {
 }
 
 function conversation_grep() {
-    var keyword = process.argv[3];
+    const keyword = process.argv[3];
 
     if (! keyword) {
         console.log('keyword must be supplied');
         process.exit(1);
     }
 
-    var world = {
+    const world = {
         groups: [],
         channels: [],
         dms: [],
@@ -584,7 +587,7 @@ function conversation_grep() {
     fill_chats(world.dms);
     fill_chats(world.multi_dms);
 
-    var new_world = keyword_search(world, keyword);
+    const new_world = keyword_search(world, keyword);
 
     clean_up(new_world);
 
@@ -593,14 +596,14 @@ function conversation_grep() {
 
 //////////////////////////
 
-var command = process.argv[2];
+const command = process.argv[2];
 
-var users = get_users();
-var users_dict = users_to_dict();
-var groups = get_groups();
-var channels = get_channels();
-var dms = get_dms();
-var multi_dms = get_multi_dms();
+const users = get_users();
+const users_dict = users_to_dict();
+const groups = get_groups();
+const channels = get_channels();
+const dms = get_dms();
+const multi_dms = get_multi_dms();
 
 switch(command) {
     case 'list_users':
